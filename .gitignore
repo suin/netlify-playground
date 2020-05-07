@@ -1,6 +1,8 @@
+# Created by https://www.gitignore.io/api/vim,node,macos,emacs,dotenv,windows
+# Edit at https://www.gitignore.io/?templates=vim,node,macos,emacs,dotenv,windows
 
-# Created by https://www.gitignore.io/api/vim,node,macos,emacs,windows
-# Edit at https://www.gitignore.io/?templates=vim,node,macos,emacs,windows
+### dotenv ###
+.env
 
 ### Emacs ###
 # -*- mode: gitignore; -*-
@@ -147,7 +149,6 @@ typings/
 .yarn-integrity
 
 # dotenv environment variables file
-.env
 .env.test
 
 # parcel-bundler cache (https://parceljs.org/)
@@ -236,4 +237,10 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# End of https://www.gitignore.io/api/vim,node,macos,emacs,windows
+# End of https://www.gitignore.io/api/vim,node,macos,emacs,dotenv,windows
+
+# ------------------------------------------------------------------------------
+
+# gatsby files
+.cache/
+public
