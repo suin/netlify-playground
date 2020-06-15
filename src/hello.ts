@@ -8,7 +8,7 @@ export const handler = (
   context: any,
   callback: APIGatewayProxyCallback
 ) => {
-  const subject = event.queryStringParameters.name || 'World'
+  const subject = event.queryStringParameters?.name ?? 'World'
   callback(null, {
     statusCode: 200,
     headers: {

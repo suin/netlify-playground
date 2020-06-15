@@ -9,5 +9,8 @@
   "scripts": {
     "build": "netlify-lambda build src/",
     "serve": "netlify-lambda serve src/"
+  },
+  "engines": {
+    "node": "^12.10.0"
   }
 }
