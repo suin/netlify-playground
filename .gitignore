@@ -237,3 +237,4 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.gitignore.io/api/vim,node,macos,emacs,windows
+/functions
