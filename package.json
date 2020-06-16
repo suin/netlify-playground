@@ -19,5 +19,8 @@
     "semi": false,
     "arrowParens": "avoid",
     "singleQuote": true
+  },
+  "dependencies": {
+    "@suin/is-object": "^1.1.2"
   }
 }
