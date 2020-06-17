@@ -1,0 +1,15 @@
+{
+  "name": "DatoCMS Schema",
+  "schemaPath": "datocms.graphql",
+  "extensions": {
+    "endpoints": {
+      "DatoCMS GraphQL Endpoint": {
+        "url": "https://graphql.datocms.com/",
+        "headers": {
+          "authorization": "Bearer ${env:DATOCMS-FULL-ACCESS-API-TOKEN}"
+        },
+        "introspect": false
+      }
+    }
+  }
+}
