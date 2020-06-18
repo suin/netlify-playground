@@ -45,7 +45,7 @@ const dato = new Dato({
 const onPostCreate: OnPostCreate = async ({ payload, callback, sendError }) => {
   const esa = createClient({
     team: payload.team.name,
-    token: env.ESA_WEBHOOK_SECRET,
+    token: env.ESA_API_TOKEN,
   })
   try {
     console.log('Creating a new post record...')
@@ -78,7 +78,7 @@ const onPostUpdate: OnPostUpdate = async ({ payload, callback, sendError }) => {
   try {
     const esa = createClient({
       team: payload.team.name,
-      token: env.ESA_WEBHOOK_SECRET,
+      token: env.ESA_API_TOKEN,
     })
     const { post } = await esa.getPost(payload.post.number)
     const previousPost = await dato.getPostByDataSource(post.url)
