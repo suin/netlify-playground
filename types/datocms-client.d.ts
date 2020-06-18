@@ -1,6 +1,7 @@
 declare module 'datocms-client' {
   declare class SiteClient {
     constructor(token: string)
+
     readonly items: Items
   }
 
@@ -15,6 +16,10 @@ declare module 'datocms-client' {
     ): Promise<Item<T>>
 
     publish<T extends Record>(itemId: string): Promise<T>
+
+    unpublish<T extends Record>(itemId: string): Promise<T>
+
+    destroy<T extends Record>(itemId): Promise<T>
   }
 
   type Item<T extends Record> = T & {

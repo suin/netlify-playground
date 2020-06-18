@@ -56,6 +56,10 @@ export class Dato {
     return this.cma.items.publish(postId)
   }
 
+  async unpublishPost(postId: string): Promise<Post> {
+    return this.cma.items.unpublish(postId)
+  }
+
   async getPostByDataSource(dataSource: string): Promise<any | undefined> {
     const result = await this.cda.query({
       query: gql`
@@ -78,6 +82,10 @@ export class Dato {
     record: Partial<Omit<Post, 'id'>>
   ): Promise<Post> {
     return this.cma.items.update<Post>(id, record)
+  }
+
+  async deleteItem(id: string): Promise<void> {
+    await this.cma.items.destroy(id)
   }
 
   async getAuthorByEsaUsername(esaUsername: string): Promise<Author> {
