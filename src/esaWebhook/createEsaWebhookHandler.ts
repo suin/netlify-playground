@@ -39,6 +39,7 @@ export const createEsaWebhookHandler = ({
   readonly onPostDelete?: OnPostDelete
 }): APIGatewayProxyHandler => {
   return (event, _, callback) => {
+    console.log(event)
     const sendError = createErrorSender(callback)
 
     if (event.httpMethod !== 'POST') {

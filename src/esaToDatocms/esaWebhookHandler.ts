@@ -74,23 +74,23 @@ const onPostCreate: OnPostCreate = async ({ payload, callback, sendError }) => {
   }
 }
 
-const onPostUpdate: OnPostUpdate = async ({ payload, callback, sendError }) => {
+const onPostUpdate: OnPostUpdate = async ({ callback, sendError }) => {
   try {
-    const esa = createClient({
-      team: payload.team.name,
-      token: env.ESA_API_TOKEN,
-    })
-    const { post } = await esa.getPost(payload.post.number)
-    const previousPost = await dato.getPostByDataSource(post.url)
-    const updatedPost = await dato.updatePost(previousPost.id, {
-      title: post.name,
-      subtitle: '', // todo
-      tags: JSON.stringify(post.tags),
-      body: post.body_html,
-      bodySource: post.body_md,
-      seo: {}, // todo
-    })
-    console.log('Post updated: %o', updatedPost)
+    // const esa = createClient({
+    //   team: payload.team.name,
+    //   token: env.ESA_API_TOKEN,
+    // })
+    // const { post } = await esa.getPost(payload.post.number)
+    // const previousPost = await dato.getPostByDataSource(post.url)
+    // const updatedPost = await dato.updatePost(previousPost.id, {
+    //   title: post.name,
+    //   subtitle: '', // todo
+    //   tags: JSON.stringify(post.tags),
+    //   body: post.body_html,
+    //   bodySource: post.body_md,
+    //   seo: {}, // todo
+    // })
+    // console.log('Post updated: %o', updatedPost)
     return callback(null, { statusCode: 200, body: 'OK' })
   } catch (e) {
     return sendError(500, `Failed to create a post: ${e.message}`, e)
@@ -101,4 +101,10 @@ export const esaWebhookHandler = createEsaWebhookHandler({
   secret: process.env.ESA_WEBHOOK_SECRET,
   onPostCreate,
   onPostUpdate,
+  onPostArchive: ({ callback }) => {
+    return callback(null, { statusCode: 200, body: 'OK' })
+  },
+  onPostDelete: ({ callback }) => {
+    return callback(null, { statusCode: 200, body: 'OK' })
+  },
 })
