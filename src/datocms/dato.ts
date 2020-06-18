@@ -60,7 +60,7 @@ export class Dato {
     return this.cma.items.unpublish(postId)
   }
 
-  async getPostByDataSource(dataSource: string): Promise<any | undefined> {
+  async getPostByDataSource(dataSource: string): Promise<Post | undefined> {
     const result = await this.cda.query({
       query: gql`
         {

@@ -79,22 +79,55 @@ export const handler: APIGatewayProxyHandler = (event, _, callback) => {
       console.log('updating a post record...')
       const { post } = await esa.getPost(payload.post.number)
       const previousPost = await dato.getPostByDataSource(post.url)
-      const updatedPost = await dato.updatePost(previousPost.id, {
-        title: post.name,
-        subtitle: '', // todo
-        tags: JSON.stringify(post.tags),
-        body: post.body_html,
-        bodySource: post.body_md,
-        seo: {}, // todo
-      })
-      console.log('Post updated: %o', updatedPost.id)
-      if (post.wip) {
-        console.log('DatoCMS post was not published, since the post is wip')
+      if (previousPost) {
+        const updatedPost = await dato.updatePost(previousPost.id, {
+          title: post.name,
+          subtitle: '', // todo
+          tags: JSON.stringify(post.tags),
+          body: post.body_html,
+          bodySource: post.body_md,
+          seo: {}, // todo
+        })
+        console.log('Post updated: %o', updatedPost.id)
+        if (post.wip) {
+          console.log('DatoCMS post was not published, since the post is wip')
+        } else {
+          console.log('publishing DatoCMS post...')
+          await dato.publishPost(updatedPost.id)
+          console.log('DatoCMS post published')
+        }
       } else {
-        console.log('publishing DatoCMS post...')
-        await dato.publishPost(updatedPost.id)
-        console.log('DatoCMS post published')
+        const author = await dato.getAuthorByEsaUsername(
+          post.created_by.screen_name
+        )
+        console.log('author detected: %o', author)
+        console.log('creating DatoCMS post...')
+        const createdPost = await dato.createPost({
+          slug: post.number.toString(),
+          title: post.name,
+          subtitle: '', // todo
+          author,
+          date: post.created_at,
+          tags: JSON.stringify(post.tags),
+          body: post.body_html,
+          bodySource: post.body_md,
+          dataSource: post.url,
+          seo: {}, // todo
+        })
+        console.log('DatoCMS post created: %o', createdPost.id)
+        if (author.type === 'fallbackAuthor') {
+          console.log(
+            'DatoCMS post was not published, since the author is unknown'
+          )
+        } else if (post.wip) {
+          console.log('DatoCMS post was not published, since the post is wip')
+        } else {
+          console.log('publishing DatoCMS post...')
+          await dato.publishPost(createdPost.id)
+          console.log('DatoCMS post published')
+        }
       }
+
       return callback(null, { statusCode: 200, body: 'OK' })
     } catch (e) {
       return sendError(500, `Failed to create a post: ${e.message}`, e)
@@ -110,18 +143,40 @@ export const handler: APIGatewayProxyHandler = (event, _, callback) => {
       console.log('archiving a post record...')
       const { post } = await esa.getPost(payload.post.number)
       const previousPost = await dato.getPostByDataSource(post.url)
-      const updatedPost = await dato.updatePost(previousPost.id, {
-        title: post.name,
-        subtitle: '', // todo
-        tags: JSON.stringify(post.tags),
-        body: post.body_html,
-        bodySource: post.body_md,
-        seo: {}, // todo
-      })
-      console.log('Post updated: %o', updatedPost.id)
-      console.log('unpublishing DatoCMS post, since the post was archived...')
-      await dato.unpublishPost(updatedPost.id)
-      console.log('DatoCMS post unpublished')
+      if (previousPost) {
+        const updatedPost = await dato.updatePost(previousPost.id, {
+          title: post.name,
+          subtitle: '', // todo
+          tags: JSON.stringify(post.tags),
+          body: post.body_html,
+          bodySource: post.body_md,
+          seo: {}, // todo
+        })
+        console.log('Post updated: %o', updatedPost.id)
+        console.log('unpublishing DatoCMS post, since the post was archived...')
+        await dato.unpublishPost(updatedPost.id)
+        console.log('DatoCMS post unpublished')
+      } else {
+        const author = await dato.getAuthorByEsaUsername(
+          post.created_by.screen_name
+        )
+        console.log('author detected: %o', author)
+        console.log('creating DatoCMS post...')
+        const createdPost = await dato.createPost({
+          slug: post.number.toString(),
+          title: post.name,
+          subtitle: '', // todo
+          author,
+          date: post.created_at,
+          tags: JSON.stringify(post.tags),
+          body: post.body_html,
+          bodySource: post.body_md,
+          dataSource: post.url,
+          seo: {}, // todo
+        })
+        console.log('DatoCMS post created: %o', createdPost.id)
+      }
+
       return callback(null, { statusCode: 200, body: 'OK' })
     } catch (e) {
       return sendError(500, `Failed to create a post: ${e.message}`, e)
@@ -134,8 +189,10 @@ export const handler: APIGatewayProxyHandler = (event, _, callback) => {
       const previousPost = await dato.getPostByDataSource(
         `https://${payload.team.name}.esa.io/posts/${payload.post.number}`
       )
-      await dato.deleteItem(previousPost.id)
-      console.log('Post deleted: %o', previousPost.id)
+      if (previousPost) {
+        await dato.deleteItem(previousPost.id)
+        console.log('Post deleted: %o', previousPost.id)
+      }
       return callback(null, { statusCode: 200, body: 'OK' })
     } catch (e) {
       return sendError(500, `Failed to create a post: ${e.message}`, e)
