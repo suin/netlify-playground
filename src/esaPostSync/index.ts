@@ -1,15 +1,26 @@
 export const index = async ({
   esa,
   targetCms,
-  unpublishCategory,
+  privateCategory,
   team,
   number,
   logger: log = () => {},
 }: {
   readonly esa: Esa
   readonly targetCms: TargetCms
-  readonly unpublishCategory: RegExp
+  /**
+   * regular expression to match esa post category.
+   *
+   * A post that matches this pattern will not be uploaded to the target CMS.
+   */
+  readonly privateCategory: RegExp
+  /**
+   * esa team name
+   */
   readonly team: string
+  /**
+   * esa post number
+   */
   readonly number: number
   readonly logger?: (message?: any, ...args: any[]) => any
 }): Promise<void> => {
@@ -25,6 +36,8 @@ export const index = async ({
 
   log('fetching esa post data of %o ...', { team, number })
   const { post: esaPost } = await esa.getPost(number)
+
+  // delete the target post that was deleted in esa
   if (!esaPost) {
     log('esa post not found: %o', number)
     if (typeof targetPostId === 'string') {
@@ -35,12 +48,26 @@ export const index = async ({
     return
   }
 
+  // delete the target post that was moved to private category
+  if (
+    typeof esaPost.category !== 'string' ||
+    privateCategory.test(esaPost.category)
+  ) {
+    log('esaPost.category belongs to root or %o', { privateCategory })
+    if (typeof targetPostId === 'string') {
+      log('deleting target post %o ...', targetPostId)
+      await targetCms.deletePost(targetPostId)
+      log('target post deleted: %o', targetPostId)
+    }
+    return
+  }
+
+  // create or update the target post
   log('finding the author for %o ...', esaPost.created_by.screen_name)
   const author = await targetCms.getAuthorIdByEsaUsername(
     esaPost.created_by.screen_name
   )
   log('assigned author: %o', author)
-
   if (typeof targetPostId === 'string') {
     log('updating the target post %o ...', targetPostId)
     await targetCms.updatePost(targetPostId, {
@@ -74,28 +101,15 @@ export const index = async ({
   let publishes = true
   if (esaPost.wip) {
     publishes = false
-    log('esaPost.wip is true: %o', targetPostId)
-  }
-  if (typeof esaPost.category !== 'string') {
-    publishes = false
-    log('esaPost.category belongs to root: %o', { publishes })
-  } else if (unpublishCategory.test(esaPost.category)) {
-    publishes = false
-    log('esaPost.category belongs to unpublishCategory: %o', {
-      publishes,
-      unpublishCategory,
-    })
+    log('unpublish, since esaPost.wip is true')
   }
   if (esaPost.name.startsWith('WIP:')) {
     publishes = false
-    log('esaPost.name starts with `WIP:`: %o', {
-      publishes,
-      name: esaPost.name,
-    })
+    log('unpublish, since esaPost.name starts with `WIP:`: %o', esaPost.name)
   }
   if (author.authorType === 'unknown') {
     publishes = false
-    log('author is unknown: %o', { publishes })
+    log('unpublish, since the author is not registered to the target CMS')
   }
   if (publishes) {
     log('publishing the target post %o ...', targetPostId)

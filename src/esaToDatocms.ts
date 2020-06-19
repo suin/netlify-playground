@@ -16,7 +16,7 @@ import { index as sync } from './esaPostSync'
 
 require('source-map-support/register')
 
-const unpublishCategory = /^(Private|Templates|Archived)(\/.+)?$/
+const privateCategory = /^(Private|Templates|Archived)(\/.+)?$/
 const itemTypePost = '248697'
 
 export const handler: APIGatewayProxyHandler = (event, _, callback) => {
@@ -40,7 +40,7 @@ export const handler: APIGatewayProxyHandler = (event, _, callback) => {
       await sync({
         esa: createClient({ team, token: esaToken }),
         targetCms: new DatocmsPosts({ token: datoToken, itemTypePost }),
-        unpublishCategory,
+        privateCategory,
         team,
         number,
         logger: console.log,
