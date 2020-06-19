@@ -116,6 +116,7 @@ export const index = async ({
     publishes = false
     log('unpublish, since the author is not registered to the target CMS')
   }
+  log('should publish? %o', publishes)
 
   // publish or unpublish
   log('determine if the target post has been published...')
