@@ -1,224 +1,77 @@
-import { Dato } from './datocms/dato'
+import { DatocmsPosts } from './datocms/datcmsPosts'
 import { createClient } from '@suin/esa-api'
-import { createRouter } from '@suin/esa-webhook-router'
+import {
+  createRouter,
+  PostArchive,
+  PostCreate,
+  PostDelete,
+  PostUpdate,
+} from '@suin/esa-webhook-router'
 import {
   APIGatewayProxyHandler,
   APIGatewayProxyResult,
   Callback,
 } from 'aws-lambda'
+import { index as sync } from './esaPostSync'
 
 require('source-map-support/register')
 
+const unpublishCategory = /^(Private|Templates|Archived)(\/.+)?$/
+const itemTypePost = '248697'
+
 export const handler: APIGatewayProxyHandler = (event, _, callback) => {
-  const env = process.env
   const errors: string[] = []
-  if (!isValidEnv(env, errors)) {
+  if (!isValidEnv(process.env, errors)) {
     throw new Error(errors.join(' '))
   }
-
-  const dato = new Dato({
-    token: env.DATOCMS_FULL_ACCESS_API_TOKEN,
-    itemTypePost: '248697',
-  })
-
+  const {
+    DATOCMS_FULL_ACCESS_API_TOKEN: datoToken,
+    ESA_API_TOKEN: esaToken,
+    ESA_WEBHOOK_SECRET: esaSecret,
+  } = process.env
   const sendError = createErrorSender(callback)
-
-  const router = createRouter({ secret: env.ESA_WEBHOOK_SECRET })
-
-  router.on('post_create', async payload => {
+  const payloadHandler = async ({
+    kind,
+    team: { name: team },
+    post: { number },
+  }: PostCreate | PostUpdate | PostArchive | PostDelete) => {
     try {
-      const esa = createClient({
-        team: payload.team.name,
-        token: env.ESA_API_TOKEN,
+      console.log('start %o', kind)
+      await sync({
+        esa: createClient({ team, token: esaToken }),
+        targetCms: new DatocmsPosts({ token: datoToken, itemTypePost }),
+        unpublishCategory,
+        team,
+        number,
+        logger: console.log,
       })
-      console.log('creating a new post record...')
-      const { post } = await esa.getPost(payload.post.number)
-      console.log('esa post fetched: %o', post.number)
-      const author = await dato.getAuthorByEsaUsername(
-        post.created_by.screen_name
-      )
-      console.log('author detected: %o', author)
-      console.log('creating DatoCMS post...')
-      const createdPost = await dato.createPost({
-        slug: post.number.toString(),
-        title: post.name,
-        subtitle: '', // todo
-        author,
-        date: post.created_at,
-        tags: JSON.stringify(post.tags),
-        body: post.body_html,
-        bodySource: post.body_md,
-        dataSource: post.url,
-        seo: {}, // todo
-      })
-      console.log('DatoCMS post created: %o', createdPost.id)
-      if (author.type === 'fallbackAuthor') {
-        console.log(
-          'DatoCMS post was not published, since the author is unknown'
-        )
-      } else if (post.wip) {
-        console.log('DatoCMS post was not published, since the post is wip')
-      } else {
-        console.log('publishing DatoCMS post...')
-        await dato.publishPost(createdPost.id)
-        console.log('DatoCMS post published')
-      }
-      console.log('done')
+      console.log('finish %o', kind)
       return callback(null, { statusCode: 200, body: 'OK' })
-    } catch (e) {
-      return sendError(500, `Failed to create a post: ${e.message}`, e)
+    } catch (error) {
+      return sendError(500, `Failed to create a post: ${error.message}`, error)
     }
-  })
-
-  router.on('post_update', async payload => {
-    try {
-      const esa = createClient({
-        team: payload.team.name,
-        token: env.ESA_API_TOKEN,
-      })
-      console.log('updating a post record...')
-      const { post } = await esa.getPost(payload.post.number)
-      const previousPost = await dato.getPostByDataSource(post.url)
-      if (previousPost) {
-        const updatedPost = await dato.updatePost(previousPost.id, {
-          title: post.name,
-          subtitle: '', // todo
-          tags: JSON.stringify(post.tags),
-          body: post.body_html,
-          bodySource: post.body_md,
-          seo: {}, // todo
-        })
-        console.log('Post updated: %o', updatedPost.id)
-        if (post.wip) {
-          console.log('DatoCMS post was not published, since the post is wip')
-        } else {
-          console.log('publishing DatoCMS post...')
-          await dato.publishPost(updatedPost.id)
-          console.log('DatoCMS post published')
-        }
-      } else {
-        const author = await dato.getAuthorByEsaUsername(
-          post.created_by.screen_name
-        )
-        console.log('author detected: %o', author)
-        console.log('creating DatoCMS post...')
-        const createdPost = await dato.createPost({
-          slug: post.number.toString(),
-          title: post.name,
-          subtitle: '', // todo
-          author,
-          date: post.created_at,
-          tags: JSON.stringify(post.tags),
-          body: post.body_html,
-          bodySource: post.body_md,
-          dataSource: post.url,
-          seo: {}, // todo
-        })
-        console.log('DatoCMS post created: %o', createdPost.id)
-        if (author.type === 'fallbackAuthor') {
-          console.log(
-            'DatoCMS post was not published, since the author is unknown'
-          )
-        } else if (post.wip) {
-          console.log('DatoCMS post was not published, since the post is wip')
-        } else {
-          console.log('publishing DatoCMS post...')
-          await dato.publishPost(createdPost.id)
-          console.log('DatoCMS post published')
-        }
-      }
-
-      return callback(null, { statusCode: 200, body: 'OK' })
-    } catch (e) {
-      return sendError(500, `Failed to create a post: ${e.message}`, e)
-    }
-  })
-
-  router.on('post_archive', async payload => {
-    try {
-      const esa = createClient({
-        team: payload.team.name,
-        token: env.ESA_API_TOKEN,
-      })
-      console.log('archiving a post record...')
-      const { post } = await esa.getPost(payload.post.number)
-      const previousPost = await dato.getPostByDataSource(post.url)
-      if (previousPost) {
-        const updatedPost = await dato.updatePost(previousPost.id, {
-          title: post.name,
-          subtitle: '', // todo
-          tags: JSON.stringify(post.tags),
-          body: post.body_html,
-          bodySource: post.body_md,
-          seo: {}, // todo
-        })
-        console.log('Post updated: %o', updatedPost.id)
-        console.log('unpublishing DatoCMS post, since the post was archived...')
-        await dato.unpublishPost(updatedPost.id)
-        console.log('DatoCMS post unpublished')
-      } else {
-        const author = await dato.getAuthorByEsaUsername(
-          post.created_by.screen_name
-        )
-        console.log('author detected: %o', author)
-        console.log('creating DatoCMS post...')
-        const createdPost = await dato.createPost({
-          slug: post.number.toString(),
-          title: post.name,
-          subtitle: '', // todo
-          author,
-          date: post.created_at,
-          tags: JSON.stringify(post.tags),
-          body: post.body_html,
-          bodySource: post.body_md,
-          dataSource: post.url,
-          seo: {}, // todo
-        })
-        console.log('DatoCMS post created: %o', createdPost.id)
-      }
-
-      return callback(null, { statusCode: 200, body: 'OK' })
-    } catch (e) {
-      return sendError(500, `Failed to create a post: ${e.message}`, e)
-    }
-  })
-
-  router.on('post_delete', async payload => {
-    try {
-      console.log('deleting a post record...')
-      const previousPost = await dato.getPostByDataSource(
-        `https://${payload.team.name}.esa.io/posts/${payload.post.number}`
-      )
-      if (previousPost) {
-        await dato.deleteItem(previousPost.id)
-        console.log('Post deleted: %o', previousPost.id)
-      }
-      return callback(null, { statusCode: 200, body: 'OK' })
-    } catch (e) {
-      return sendError(500, `Failed to create a post: ${e.message}`, e)
-    }
-  })
-
+  }
   try {
-    router.route(event)
-  } catch (e) {
-    callback(null, {
-      statusCode: 400,
-      headers: { 'content-type': 'text/plain' },
-      body: e.message,
-    })
+    createRouter({ secret: esaSecret })
+      .on('post_create', payloadHandler)
+      .on('post_update', payloadHandler)
+      .on('post_archive', payloadHandler)
+      .on('post_delete', payloadHandler)
+      .route(event)
+  } catch (error) {
+    sendError(400, error.message)
   }
 }
 
-const createErrorSender = (
-  callback: Callback<APIGatewayProxyResult>
-): SendError => (code, message, error) => {
+const createErrorSender = (callback: Callback<APIGatewayProxyResult>) => (
+  code: number,
+  message: string,
+  error?: Error
+): void => {
   console.log(`< ${code}: ${message}`)
   if (error) console.error(error)
   callback(null, { statusCode: code, body: message })
 }
-
-type SendError = (code: number, message: string, error?: Error) => void
 
 type Env = {
   readonly ESA_WEBHOOK_SECRET: string
