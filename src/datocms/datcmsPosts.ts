@@ -95,6 +95,25 @@ export class DatocmsPosts implements TargetCms {
     return result?.data?.post?.id
   }
 
+  async isPostPublished(id: string): Promise<boolean> {
+    const result = await this.contentsDeliveryApi.query({
+      query: gql`
+        {
+          post(
+            filter: { id: { eq: "${id}" } }
+          ) {
+            _status
+          }
+        }
+      `,
+    })
+    if (result?.data?.post) {
+      return result?.data?.post?._status === 'published'
+    } else {
+      throw new Error(`Post not found: ${id}`)
+    }
+  }
+
   async publishPost(id: string): Promise<void> {
     await this.contentsManagementApi.items.publish(id)
   }

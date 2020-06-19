@@ -53,11 +53,16 @@ export const index = async ({
     typeof esaPost.category !== 'string' ||
     privateCategory.test(esaPost.category)
   ) {
-    log('esaPost.category belongs to root or %o', { privateCategory })
+    log(
+      'esaPost.category belongs to root or private category %s',
+      privateCategory
+    )
     if (typeof targetPostId === 'string') {
       log('deleting target post %o ...', targetPostId)
       await targetCms.deletePost(targetPostId)
       log('target post deleted: %o', targetPostId)
+    } else {
+      log('target post was not created')
     }
     return
   }
@@ -111,11 +116,16 @@ export const index = async ({
     publishes = false
     log('unpublish, since the author is not registered to the target CMS')
   }
-  if (publishes) {
+
+  // publish or unpublish
+  log('determine if the target post has been published...')
+  const isPublished = await targetCms.isPostPublished(targetPostId)
+  log('target post has been published? %o', isPublished)
+  if (publishes && !isPublished) {
     log('publishing the target post %o ...', targetPostId)
     await targetCms.publishPost(targetPostId)
     log('target post published: %o', targetPostId)
-  } else {
+  } else if (!publishes && isPublished) {
     log('unpublishing the target post %o ...', targetPostId)
     await targetCms.unpublishPost(targetPostId)
     log('target post unpublished: %o', targetPostId)
@@ -156,6 +166,8 @@ export interface TargetCms {
   createPost(post: TargetPost): Promise<string>
 
   updatePost(id: string, post: Partial<TargetPost>): Promise<void>
+
+  isPostPublished(id: string): Promise<boolean>
 
   publishPost(id: string): Promise<void>
 
