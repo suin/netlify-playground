@@ -5,7 +5,7 @@ import { InMemoryCache, NormalizedCacheObject } from 'apollo-cache-inmemory'
 import gql from 'graphql-tag'
 import fetch from 'node-fetch'
 import { SiteClient } from 'datocms-client'
-import { TargetCms, TargetPost } from '../esaPostSync'
+import { TargetCms, CreatePost, UpdatePost } from '../esaPostSync'
 
 export class DatocmsPosts implements TargetCms {
   private readonly contentsDeliveryApi: ApolloClient<NormalizedCacheObject>
@@ -27,27 +27,29 @@ export class DatocmsPosts implements TargetCms {
   async createPost({
     slug,
     title,
-    subtitle,
     author,
     date,
     tags,
+    category,
     body,
     bodySource,
     sourceUrl,
     seo,
-  }: TargetPost): Promise<string> {
+    pathAliases,
+  }: CreatePost): Promise<string> {
     const post = await this.contentsManagementApi.items.create<Post>({
       itemType: this.itemTypePost,
       slug,
       title,
-      subtitle,
-      author: author,
+      author,
       date,
       tags: JSON.stringify(tags),
+      category,
       body,
       bodySource,
-      dataSource: sourceUrl,
+      sourceUrl,
       seo,
+      pathAliases: JSON.stringify(pathAliases),
     })
     return post.id
   }
@@ -85,7 +87,7 @@ export class DatocmsPosts implements TargetCms {
       query: gql`
         {
           post(
-            filter: { dataSource: { eq: "${esaPostUrl}" } }
+            filter: { sourceUrl: { eq: "${esaPostUrl}" } }
           ) {
             id
           }
@@ -124,15 +126,15 @@ export class DatocmsPosts implements TargetCms {
 
   async updatePost(
     id: string,
-    { title, subtitle, tags, body, bodySource, seo }: Partial<TargetPost>
+    { title, author, tags, category, body, bodySource }: UpdatePost
   ): Promise<void> {
     await this.contentsManagementApi.items.update<Post>(id, {
       title,
-      subtitle,
+      author,
       tags: JSON.stringify(tags),
+      category,
       body,
       bodySource,
-      seo,
     })
   }
 }
@@ -141,17 +143,18 @@ interface Post {
   id: string
   slug: string
   title: string
-  subtitle: string
   author: string
   date: string
-  tags: string | '[]'
+  tags: string
+  category: string
   body: string
   bodySource: string
-  dataSource: string
+  sourceUrl: string
   seo: {
     title?: string
     description?: string
   }
+  pathAliases: string
 }
 
 const createClient = (token: string) => {

@@ -12,12 +12,10 @@ import {
   APIGatewayProxyResult,
   Callback,
 } from 'aws-lambda'
-import { index as sync } from './esaPostSync'
+import { syncEsaPost } from './esaPostSync'
+import { isValidEnv } from './env'
 
 require('source-map-support/register')
-
-const privateCategory = /^(Private|Templates|Archived)(\/.+)?$/
-const itemTypePost = '248697'
 
 export const handler: APIGatewayProxyHandler = (event, _, callback) => {
   const errors: string[] = []
@@ -26,9 +24,12 @@ export const handler: APIGatewayProxyHandler = (event, _, callback) => {
   }
   const {
     DATOCMS_FULL_ACCESS_API_TOKEN: datoToken,
+    DATOCMS_POST_ITEM_ID: itemTypePost,
     ESA_API_TOKEN: esaToken,
     ESA_WEBHOOK_SECRET: esaSecret,
+    ESA_PRIVATE_CATEGORY_REGEX: privateCategoryRegex,
   } = process.env
+  const privateCategory = new RegExp(privateCategoryRegex)
   const sendError = createErrorSender(callback)
   const payloadHandler = async ({
     kind,
@@ -37,7 +38,7 @@ export const handler: APIGatewayProxyHandler = (event, _, callback) => {
   }: PostCreate | PostUpdate | PostArchive | PostDelete) => {
     try {
       console.log('start %o', kind)
-      await sync({
+      await syncEsaPost({
         esa: createClient({ team, token: esaToken }),
         targetCms: new DatocmsPosts({ token: datoToken, itemTypePost }),
         privateCategory,
@@ -71,26 +72,4 @@ const createErrorSender = (callback: Callback<APIGatewayProxyResult>) => (
   console.log(`< ${code}: ${message}`)
   if (error) console.error(error)
   callback(null, { statusCode: code, body: message })
-}
-
-type Env = {
-  readonly ESA_WEBHOOK_SECRET: string
-  readonly DATOCMS_FULL_ACCESS_API_TOKEN: string
-  readonly ESA_API_TOKEN: string
-}
-
-const isValidEnv = (
-  env: NodeJS.ProcessEnv & Partial<Record<keyof Env, unknown>>,
-  errors: string[] = []
-): env is Env => {
-  if (typeof env.ESA_WEBHOOK_SECRET !== 'string') {
-    errors.push(`env variable ESA_WEBHOOK_SECRET is not set`)
-  }
-  if (typeof env.DATOCMS_FULL_ACCESS_API_TOKEN !== 'string') {
-    errors.push(`env variable DATOCMS_FULL_ACCESS_API_TOKEN is not set`)
-  }
-  if (typeof env.ESA_API_TOKEN !== 'string') {
-    errors.push(`env variable ESA_API_TOKEN is not set`)
-  }
-  return errors.length === 0
 }

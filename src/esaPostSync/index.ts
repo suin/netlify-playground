@@ -1,10 +1,15 @@
-export const index = async ({
+import { formatISO } from 'date-fns'
+
+export const syncEsaPost = async ({
   esa,
   targetCms,
   privateCategory,
   team,
   number,
   logger: log = () => {},
+  esaPost,
+  createPost = {},
+  getDate = () => new Date(),
 }: {
   readonly esa: Esa
   readonly targetCms: TargetCms
@@ -23,6 +28,9 @@ export const index = async ({
    */
   readonly number: number
   readonly logger?: (message?: any, ...args: any[]) => any
+  readonly esaPost?: EsaPost
+  readonly createPost?: Partial<CreatePost>
+  readonly getDate?: () => Date
 }): Promise<void> => {
   const esaPostUrl = `https://${team}.esa.io/posts/${number}`
 
@@ -34,8 +42,11 @@ export const index = async ({
     log('target post not created yet')
   }
 
-  log('fetching esa post data of %o ...', { team, number })
-  const { post: esaPost } = await esa.getPost(number)
+  if (esaPost === undefined) {
+    log('fetching esa post data of %o ...', { team, number })
+    const { post } = await esa.getPost(number)
+    esaPost = post
+  }
 
   // delete the target post that was deleted in esa
   if (!esaPost) {
@@ -68,35 +79,46 @@ export const index = async ({
   }
 
   // create or update the target post
-  log('finding the author for %o ...', esaPost.created_by.screen_name)
-  const author = await targetCms.getAuthorIdByEsaUsername(
-    esaPost.created_by.screen_name
-  )
+  log('detecting author username from %s ...', [
+    ...esaPost.tags,
+    esaPost.created_by.screen_name,
+  ])
+  const {
+    tags,
+    authorUsername = esaPost.created_by.screen_name,
+  } = extractAuthorUsernameFromTags(esaPost.tags)
+  log('author username detected: %o', authorUsername)
+
+  log('finding the author for %o ...', authorUsername)
+  const author = await targetCms.getAuthorIdByEsaUsername(authorUsername)
   log('assigned author: %o', author)
+
   if (typeof targetPostId === 'string') {
     log('updating the target post %o ...', targetPostId)
     await targetCms.updatePost(targetPostId, {
       title: esaPost.name,
-      subtitle: '', // todo
-      tags: esaPost.tags,
+      tags,
+      category: esaPost.category ?? '',
       body: esaPost.body_html,
       bodySource: esaPost.body_md,
-      seo: {}, // todo
+      author: author.authorId,
     })
     log('target post updated: %o', targetPostId)
   } else {
     log('creating new target post...')
     targetPostId = await targetCms.createPost({
-      slug: esaPost.number.toString(),
+      slug: `/posts/${esaPost.number}`,
       title: esaPost.name,
-      subtitle: '', // todo
       author: author.authorId,
-      date: esaPost.created_at,
-      tags: esaPost.tags,
+      date: formatISO(getDate()),
+      tags,
+      category: esaPost.category ?? '',
       body: esaPost.body_html,
       bodySource: esaPost.body_md,
       sourceUrl: esaPostUrl,
-      seo: {}, // todo
+      seo: {},
+      pathAliases: [],
+      ...createPost,
     })
     log('target post created: %o', targetPostId)
   }
@@ -138,20 +160,22 @@ export interface Esa {
     number: number
   ): Promise<{
     readonly team: string
-    readonly post?: {
-      readonly number: number
-      readonly name: string
-      readonly tags: ReadonlyArray<string>
-      readonly body_html: string
-      readonly body_md: string
-      readonly created_at: string
-      readonly created_by: {
-        readonly screen_name: string
-      }
-      readonly wip: boolean
-      readonly category: null | string
-    }
+    readonly post?: EsaPost
   }>
+}
+
+type EsaPost = {
+  readonly number: number
+  readonly name: string
+  readonly tags: ReadonlyArray<string>
+  readonly body_html: string
+  readonly body_md: string
+  readonly created_at: string
+  readonly created_by: {
+    readonly screen_name: string
+  }
+  readonly wip: boolean
+  readonly category: null | string
 }
 
 export interface TargetCms {
@@ -164,9 +188,9 @@ export interface TargetCms {
     | { authorType: 'unknown'; authorId: string }
   >
 
-  createPost(post: TargetPost): Promise<string>
+  createPost(post: CreatePost): Promise<string>
 
-  updatePost(id: string, post: Partial<TargetPost>): Promise<void>
+  updatePost(id: string, post: UpdatePost): Promise<void>
 
   isPostPublished(id: string): Promise<boolean>
 
@@ -177,13 +201,13 @@ export interface TargetCms {
   deletePost(id: string): Promise<void>
 }
 
-export type TargetPost = {
+export type CreatePost = {
   readonly slug: string
   readonly title: string
-  readonly subtitle: string
   readonly author: string
   readonly date: string
   readonly tags: ReadonlyArray<string>
+  readonly category: string
   readonly body: string
   readonly bodySource: string
   readonly sourceUrl: string
@@ -191,4 +215,28 @@ export type TargetPost = {
     readonly title?: string
     readonly description?: string
   }
+  readonly pathAliases: ReadonlyArray<string>
 }
+
+export type UpdatePost = Partial<
+  Pick<
+    CreatePost,
+    'title' | 'author' | 'tags' | 'category' | 'body' | 'bodySource'
+  >
+>
+
+const extractAuthorUsernameFromTags = (
+  tags: EsaPost['tags']
+): {
+  readonly authorUsername?: string
+  readonly tags: ReadonlyArray<string>
+} =>
+  tags.reduce<ReturnType<typeof extractAuthorUsernameFromTags>>(
+    ({ authorUsername, tags }, tag) => {
+      const match = tag.match(/^@([a-zA-Z0-9_-]+)$/)
+      return match && typeof match[1] === 'string'
+        ? { authorUsername: match[1], tags }
+        : { authorUsername, tags: [...tags, tag] }
+    },
+    { tags: [] }
+  )
