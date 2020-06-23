@@ -37,7 +37,11 @@ export const handler: APIGatewayProxyHandler = (event, _, callback) => {
     team: { name: team },
     post: { number },
   }: PostCreate | PostUpdate | PostArchive | PostDelete) => {
-    const datocms = new DatocmsPosts({ token: datoToken, itemTypePost })
+    const datocms = new DatocmsPosts({
+      token: datoToken,
+      itemTypePost,
+      buildTriggerId,
+    })
     try {
       console.log('start %o', kind)
       await syncEsaPost({
@@ -48,7 +52,6 @@ export const handler: APIGatewayProxyHandler = (event, _, callback) => {
         number,
         logger: console.log,
       })
-      await datocms.build(buildTriggerId)
       return callback(null, { statusCode: 200, body: 'OK' })
     } catch (error) {
       return sendError(500, `Failed to create a post: ${error.message}`, error)

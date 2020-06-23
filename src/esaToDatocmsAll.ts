@@ -21,7 +21,11 @@ const {
 const privateCategory = new RegExp(privateCategoryRegex)
 
 const esa = createClient({ team, token: esaToken })
-const datocms = new DatocmsPosts({ token: datoToken, itemTypePost })
+const datocms = new DatocmsPosts({
+  token: datoToken,
+  itemTypePost,
+  buildTriggerId,
+})
 
 async function* getAllPosts(params: GetPostsParameters): AsyncGenerator<Post> {
   let page: number | null = 1
@@ -50,11 +54,12 @@ const syncAll = async (): Promise<void> => {
         number: post.number,
         logger: console.log,
         esaPost: post,
+        preventDeploy: true,
       })
     } finally {
       console.groupEnd()
     }
-    await datocms.build(buildTriggerId)
+    await datocms.deploy()
   }
 }
 

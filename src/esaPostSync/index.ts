@@ -10,6 +10,7 @@ export const syncEsaPost = async ({
   esaPost,
   createPost = {},
   getDate = () => new Date(),
+  preventDeploy = false,
 }: {
   readonly esa: Esa
   readonly targetCms: TargetCms
@@ -31,6 +32,7 @@ export const syncEsaPost = async ({
   readonly esaPost?: EsaPost
   readonly createPost?: Partial<CreatePost>
   readonly getDate?: () => Date
+  readonly preventDeploy?: boolean
 }): Promise<void> => {
   const esaPostUrl = `https://${team}.esa.io/posts/${number}`
 
@@ -153,6 +155,15 @@ export const syncEsaPost = async ({
     await targetCms.unpublishPost(targetPostId)
     log('target post unpublished: %o', targetPostId)
   }
+
+  // deploy site
+  if (preventDeploy) {
+    log('deploy was prevented')
+    return
+  }
+  log('deploying site...')
+  await targetCms.deploy()
+  log('deploy done')
 }
 
 export interface Esa {
@@ -199,6 +210,8 @@ export interface TargetCms {
   unpublishPost(id: string): Promise<void>
 
   deletePost(id: string): Promise<void>
+
+  deploy(): Promise<void>
 }
 
 export type CreatePost = {

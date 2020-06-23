@@ -11,17 +11,21 @@ export class DatocmsPosts implements TargetCms {
   private readonly contentsDeliveryApi: ApolloClient<NormalizedCacheObject>
   private readonly contentsManagementApi: SiteClient
   private readonly itemTypePost: string
+  private readonly buildTriggerId: string
 
   constructor({
     token,
     itemTypePost,
+    buildTriggerId,
   }: {
     readonly token: string
     readonly itemTypePost: string
+    readonly buildTriggerId: string
   }) {
     this.contentsDeliveryApi = createClient(token)
     this.contentsManagementApi = new SiteClient(token)
     this.itemTypePost = itemTypePost
+    this.buildTriggerId = buildTriggerId
   }
 
   async createPost({
@@ -138,8 +142,8 @@ export class DatocmsPosts implements TargetCms {
     })
   }
 
-  async build(buildTriggerId: string): Promise<void> {
-    return this.contentsManagementApi.buildTriggers.trigger(buildTriggerId)
+  async deploy(): Promise<void> {
+    await this.contentsManagementApi.buildTriggers.trigger(this.buildTriggerId)
   }
 }
 
