@@ -137,6 +137,10 @@ export class DatocmsPosts implements TargetCms {
       bodySource,
     })
   }
+
+  async build(buildTriggerId: string): Promise<void> {
+    return this.contentsManagementApi.buildTriggers.trigger(buildTriggerId)
+  }
 }
 
 interface Post {

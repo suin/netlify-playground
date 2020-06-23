@@ -3,6 +3,7 @@ declare module 'datocms-client' {
     constructor(token: string)
 
     readonly items: Items
+    readonly buildTriggers: BuildTriggers
   }
 
   interface Items {
@@ -20,6 +21,10 @@ declare module 'datocms-client' {
     unpublish<T extends Record>(itemId: string): Promise<T>
 
     destroy<T extends Record>(itemId): Promise<T>
+  }
+
+  interface BuildTriggers {
+    trigger(buildTriggerId: string): Promise<void>
   }
 
   type Item<T extends Record> = T & {

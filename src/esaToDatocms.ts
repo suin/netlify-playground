@@ -25,6 +25,7 @@ export const handler: APIGatewayProxyHandler = (event, _, callback) => {
   const {
     DATOCMS_FULL_ACCESS_API_TOKEN: datoToken,
     DATOCMS_POST_ITEM_ID: itemTypePost,
+    DATOCMS_BUILD_TRIGGER_ID: buildTriggerId,
     ESA_API_TOKEN: esaToken,
     ESA_WEBHOOK_SECRET: esaSecret,
     ESA_PRIVATE_CATEGORY_REGEX: privateCategoryRegex,
@@ -36,17 +37,18 @@ export const handler: APIGatewayProxyHandler = (event, _, callback) => {
     team: { name: team },
     post: { number },
   }: PostCreate | PostUpdate | PostArchive | PostDelete) => {
+    const datocms = new DatocmsPosts({ token: datoToken, itemTypePost })
     try {
       console.log('start %o', kind)
       await syncEsaPost({
         esa: createClient({ team, token: esaToken }),
-        targetCms: new DatocmsPosts({ token: datoToken, itemTypePost }),
+        targetCms: datocms,
         privateCategory,
         team,
         number,
         logger: console.log,
       })
-      console.log('finish %o', kind)
+      await datocms.build(buildTriggerId)
       return callback(null, { statusCode: 200, body: 'OK' })
     } catch (error) {
       return sendError(500, `Failed to create a post: ${error.message}`, error)

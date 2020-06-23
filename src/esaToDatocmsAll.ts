@@ -5,8 +5,6 @@ import { isValidEnv } from './env'
 import { GetPostsParameters } from '@suin/esa-api/index'
 import { APIGatewayProxyHandler } from 'aws-lambda'
 
-/// <reference types="../types/datocms-client" />
-
 const errors: string[] = []
 if (!isValidEnv(process.env, errors)) {
   throw new Error(errors.join(' '))
@@ -15,6 +13,7 @@ if (!isValidEnv(process.env, errors)) {
 const {
   DATOCMS_FULL_ACCESS_API_TOKEN: datoToken,
   DATOCMS_POST_ITEM_ID: itemTypePost,
+  DATOCMS_BUILD_TRIGGER_ID: buildTriggerId,
   ESA_API_TOKEN: esaToken,
   ESA_TEAM: team,
   ESA_PRIVATE_CATEGORY_REGEX: privateCategoryRegex,
@@ -22,7 +21,7 @@ const {
 const privateCategory = new RegExp(privateCategoryRegex)
 
 const esa = createClient({ team, token: esaToken })
-const dato = new DatocmsPosts({ token: datoToken, itemTypePost })
+const datocms = new DatocmsPosts({ token: datoToken, itemTypePost })
 
 async function* getAllPosts(params: GetPostsParameters): AsyncGenerator<Post> {
   let page: number | null = 1
@@ -45,7 +44,7 @@ const syncAll = async (): Promise<void> => {
     try {
       await syncEsaPost({
         esa,
-        targetCms: dato,
+        targetCms: datocms,
         privateCategory,
         team,
         number: post.number,
@@ -55,6 +54,7 @@ const syncAll = async (): Promise<void> => {
     } finally {
       console.groupEnd()
     }
+    await datocms.build(buildTriggerId)
   }
 }
 
