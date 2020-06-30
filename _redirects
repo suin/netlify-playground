@@ -1,0 +1,17 @@
+# Redirect with a 301
+/old1 /new 301
+
+# Redirect with a 302
+/old2 /new 302
+
+# Show a custom 404 for this path
+/old3 /new 404
+
+# Rewrite a path
+/old4 /new 200
+
+# Trailing slash
+/old5/ /new 301
+
+# Default status
+/old6 /new
